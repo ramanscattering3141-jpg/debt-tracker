@@ -3,16 +3,23 @@
 A private, offline debt tracker. Everything you enter stays on the device: no bank connections, nothing uploaded.
 Built with React + TypeScript + Vite, Tailwind, Dexie (IndexedDB), Recharts and decimal.js, and packaged for iPhone with Capacitor.
 
-## iPhone 15 (native app)
-1. Plug in the iPhone (Developer Mode must be on: Settings › Privacy & Security › Developer Mode).
-2. Run `scripts/iphone.sh`. It builds the app and opens Xcode.
-3. In Xcode, select the **App** target › Signing & Capabilities › Team: your Apple ID. Choose your iPhone and press ▶.
-4. On the phone, trust the developer: Settings › General › VPN & Device Management.
-With a free Apple ID the app has to be reinstalled every 7 days. Your data survives reinstalls; export a backup anyway (More › Backup).
+## Hosting (website that installs like an app)
+It's a static site. Your financial data is **never** sent to the host; it lives in the browser storage of each device you use.
 
-## Mac / Windows (browser)
-Requires Node 20+. `npm install`, then `npm run build && npm run preview`, then open the printed URL.
-For development, use `npm run dev`.
+**GitHub Pages:** push to a GitHub repo's `main` branch. In the repo, go to Settings › Pages › Source and choose **GitHub Actions**. `.github/workflows/deploy.yml` runs the tests, builds and deploys.
+**Netlify:** "Import from Git" uses `netlify.toml` automatically. Or run `npm run build` and drag the `dist` folder onto app.netlify.com/drop.
+
+## Install on iPhone 15
+Open the site in **Safari**, tap Share › **Add to Home Screen**. It opens full screen with its own icon and works offline.
+- Data saved in Safari and data saved in the home-screen app are separate. Use the installed app.
+- Each device keeps its own data. To move it, use More › Backup › Export, then Restore on the other device.
+- Export a backup regularly (it saves to the Files app). Deleting the home-screen app deletes its data.
+
+## Run locally (Mac / Windows)
+Requires Node 20+. `npm install`, then `npm run dev` (development) or `npm run build && npm run preview`.
+
+## Optional: native iPhone build
+`scripts/iphone.sh` opens the Capacitor Xcode project (free Apple ID; reinstall every 7 days). The web install above is simpler.
 
 ## Tests
 `npm test` runs the calculation-engine tests (daily/monthly/compound interest, rate changes, minimums, amortization, avalanche/snowball, frequencies, LOC withdrawals).
