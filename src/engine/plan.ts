@@ -112,7 +112,7 @@ export function simulatePlan(inputs: PlanAccountInput[], opts: PlanOptions): Pla
     .map((o) => ({ day: toDay(o.date), amount: D(o.amount), used: false }));
   const lastEventDay = Math.max(
     -Infinity,
-    ...slots.flatMap((s) => s.events.map((e) => toDay(e.date))),
+    ...slots.flatMap((s) => s.events.filter((e) => e.type === 'borrow').map((e) => toDay(e.date))),
     ...oneTimes.map((o) => o.day),
   );
   const lastRateDay = Math.max(-Infinity, ...slots.map((s) => s.sim.lastRateChangeDay()));
@@ -126,7 +126,8 @@ export function simulatePlan(inputs: PlanAccountInput[], opts: PlanOptions): Pla
   const baseBudget = D(opts.monthlyBudget).plus(D(opts.extraMonthly));
 
   for (let k = 0; k < horizon && !amortizing; k++) {
-    const active = slots.filter((s) => s.payoff === null || s.events.length > s.ei);
+    const pendingBorrow = (s: Slot) => s.events.slice(s.ei).some((e) => e.type === 'borrow');
+    const active = slots.filter((s) => s.payoff === null || pendingBorrow(s));
     if (active.length === 0) {
       amortizing = true;
       break;
@@ -266,7 +267,7 @@ export function simulatePlan(inputs: PlanAccountInput[], opts: PlanOptions): Pla
     period.totalBalance = totalBal.toNumber();
     periods.push(period);
 
-    if (slots.every((s) => s.payoff !== null) && slots.every((s) => s.ei >= s.events.length)) {
+    if (slots.every((s) => s.payoff !== null && !pendingBorrow(s))) {
       amortizing = true;
       break;
     }

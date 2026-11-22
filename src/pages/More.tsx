@@ -1,10 +1,11 @@
-import { ChevronRight, ListOrdered, LineChart, HardDrive, ShieldCheck } from 'lucide-react';
+import { ChevronRight, ListOrdered, LineChart, HardDrive, ShieldCheck, BellRing } from 'lucide-react';
 import { useApp, PageHeader } from '@/App';
 import { Card } from '@/components/ui';
 
 export function More() {
   const { go, data } = useApp();
   const items = [
+    { key: 'reminders', icon: BellRing, label: 'Reminders & scheduled payments', sub: `${data.schedules.length} scheduled · reminder lead times` },
     { key: 'transactions', icon: ListOrdered, label: 'All transactions', sub: `${data.transactions.length} recorded` },
     { key: 'history', icon: LineChart, label: 'History', sub: 'Balances, interest and payments over time' },
     { key: 'data', icon: HardDrive, label: 'Backup, export & settings', sub: 'JSON backup, CSV export, currency, reset' },

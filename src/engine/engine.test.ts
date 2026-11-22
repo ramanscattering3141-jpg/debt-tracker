@@ -412,3 +412,19 @@ describe('interest-only minimum includes all unpaid simple interest', () => {
     expect(sim.minimumDue(toDay('2025-02-15')).toNumber()).toBeCloseTo(50 + (10000 * 0.07 * 31) / 365, 8);
   });
 });
+
+describe('open-ended recurring extra payments', () => {
+  const card = acct({ id: 'c', rate: 12, plannedPayment: 100, minPayment: { method: 'fixed', amount: 25 } });
+  const extras = Array.from({ length: 600 }, (_, i) => ({ date: `${2025 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}-20`, type: 'payment' as const, amount: 50 }));
+  it('single-account projection still finds the payoff and finishes sooner', () => {
+    const base = projectAccount(card, { principal: 3000 }, '2025-01-01');
+    const withExtra = projectAccount(card, { principal: 3000 }, '2025-01-01', { events: extras });
+    expect(withExtra.amortizing).toBe(true);
+    expect(withExtra.months!).toBeLessThan(base.months!);
+  });
+  it('plan simulation ends at payoff even with payments scheduled for decades', () => {
+    const r = simulatePlan([{ account: card, state: { principal: 3000 }, events: extras }], { startDate: '2025-01-01', monthlyBudget: 100, strategy: 'avalanche' });
+    expect(r.amortizing).toBe(true);
+    expect(r.periods.length).toBeLessThan(40);
+  });
+});

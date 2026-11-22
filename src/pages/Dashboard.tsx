@@ -1,8 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronRight, AlertTriangle } from 'lucide-react';
 import { useApp, PageHeader } from '@/App';
 import { Card, CardHeader, Stat, Notice } from '@/components/ui';
 import { InstallHint } from '@/components/InstallHint';
+import { MarkPaidSheet } from '@/components/MarkPaidSheet';
+import { UpcomingRow } from '@/pages/Calendar';
+import { activeReminders, type UpcomingItem } from '@/lib/upcoming';
 import { BalanceArea, Donut, Bars } from '@/components/charts';
 import { money, date, pct, duration } from '@/lib/format';
 import { projectedSeries, historySeries, monthsUntil } from '@/lib/compute';
@@ -53,6 +56,7 @@ export function Dashboard() {
       </PageHeader>
 
       <InstallHint />
+      <ComingUp />
 
       <Card className="-mt-1 p-4">
         <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
@@ -164,5 +168,25 @@ export function Dashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+/** Payments whose reminder window has started and that aren't marked paid yet. */
+function ComingUp() {
+  const { summary, data, today, go } = useApp();
+  const [sel, setSel] = useState<UpcomingItem | null>(null);
+  const items = useMemo(() => activeReminders(summary, data, today), [summary, data, today]);
+  if (!items.length) return null;
+  const current = sel ? items.find((i) => i.key === sel.key) ?? sel : null;
+  return (
+    <Card>
+      <CardHeader title="Coming up" subtitle="Tap a payment once it’s made" action={<button className="text-sm font-semibold text-brand" onClick={() => go('calendar')}>Calendar ›</button>} />
+      <div className="divide-y divide-border">
+        {items.slice(0, 6).map((i) => (
+          <UpcomingRow key={i.key} item={i} onClick={() => setSel(i)} />
+        ))}
+      </div>
+      {current && <MarkPaidSheet item={current} onClose={() => setSel(null)} />}
+    </Card>
   );
 }

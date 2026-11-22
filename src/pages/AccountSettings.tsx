@@ -252,6 +252,16 @@ export function AccountSettings({ view }: { view: AccountView }) {
           <Field label={`Planned payment (per ${a.frequency === 'monthly' ? 'month' : a.frequency === 'weekly' ? 'week' : '2 weeks'})`} hint="Leave blank to pay the minimum" className="col-span-2">
             <NumberInput value={a.plannedPayment} onChange={(n) => set('plannedPayment', n)} prefix="$" />
           </Field>
+          <Field label="Payment reminder" className="col-span-2" hint="Change the default under Calendar › Reminders">
+            <Select value={a.remindDaysBefore == null ? 'default' : String(a.remindDaysBefore)} onChange={(e) => set('remindDaysBefore', e.target.value === 'default' ? null : Number(e.target.value))}>
+              <option value="default">Use default</option>
+              {[0, 1, 2, 3, 5, 7, 10, 14].map((n) => (
+                <option key={n} value={n}>
+                  {n === 0 ? 'On the day' : n === 1 ? '1 day before' : `${n} days before`}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Notes" className="col-span-2">
             <Input value={a.notes ?? ''} onChange={(e) => set('notes', e.target.value)} />
           </Field>

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, toEngine, rateOn, type Account, type RateRecord, type Transaction, type PaymentRecord, type Scenario, type ScenarioConfig } from '@/db/db';
+import { db, toEngine, rateOn, type Account, type RateRecord, type Transaction, type PaymentRecord, type Scenario, type ScenarioConfig, type Schedule } from '@/db/db';
 import {
   currentState,
   projectAccount,
@@ -20,6 +20,8 @@ import {
   type PlanAccountInput,
   type PlanOptions,
   type MinPaymentConfig,
+  type FutureEvent,
+  occurrences,
 } from '@/engine';
 
 export interface AppData {
@@ -28,22 +30,24 @@ export interface AppData {
   transactions: Transaction[];
   payments: PaymentRecord[];
   scenarios: Scenario[];
+  schedules: Schedule[];
   settings: Record<string, unknown>;
 }
 
 export function useAppData(): AppData | undefined {
   return useLiveQuery(async () => {
-    const [accounts, rates, transactions, payments, scenarios, settingsArr] = await Promise.all([
+    const [accounts, rates, transactions, payments, scenarios, settingsArr, schedules] = await Promise.all([
       db.accounts.orderBy('order').toArray(),
       db.rates.toArray(),
       db.transactions.toArray(),
       db.payments.toArray(),
       db.scenarios.orderBy('createdAt').toArray(),
       db.settings.toArray(),
+      db.schedules.toArray(),
     ]);
     const settings: Record<string, unknown> = {};
     for (const s of settingsArr) settings[s.key] = s.value;
-    return { accounts, rates, transactions, payments, scenarios, settings };
+    return { accounts, rates, transactions, payments, scenarios, schedules, settings };
   }, []);
 }
 
@@ -58,6 +62,8 @@ export interface AccountView {
   minimumLabel: string;
   plannedMonthly: number;
   txns: Transaction[];
+  /** Future occurrences of scheduled manual payments counted in projections. */
+  extraPayments: FutureEvent[];
 }
 
 export const MIN_METHOD_LABELS: Record<MinPaymentConfig['method'], string> = {
@@ -89,7 +95,8 @@ export function buildAccountView(a: Account, data: AppData, today: string): Acco
   const engine = toEngine(a, data.rates);
   const txns = data.transactions.filter((t) => t.accountId === a.id);
   const state = currentState(engine, a.openingBalance, a.openingBalanceDate, txns, today);
-  const projection = projectAccount(engine, state.sim, today);
+  const extras = scheduledExtraPayments(data.schedules, a.id, today);
+  const projection = projectAccount(engine, state.sim, today, { events: extras });
   const planned = a.plannedPayment && a.plannedPayment > 0 ? monthlyEquivalent(a.plannedPayment, a.frequency) : projection.firstMinimum;
   let label = describeMin(a.minPayment);
   if (a.minPayment.floor) label += ` (min $${a.minPayment.floor})`;
@@ -104,6 +111,7 @@ export function buildAccountView(a: Account, data: AppData, today: string): Acco
     minimumLabel: label,
     plannedMonthly: planned,
     txns,
+    extraPayments: extras,
   };
 }
 
@@ -247,9 +255,12 @@ export function planInputs(summary: Summary, config?: Partial<ScenarioConfig>): 
       return {
         account: engine,
         state: v.state.sim,
-        events: (config?.futureDraws ?? [])
-          .filter((d) => d.accountId === v.account.id)
-          .map((d) => ({ date: d.date, type: 'borrow' as const, amount: d.amount })),
+        events: [
+          ...(config?.futureDraws ?? [])
+            .filter((d) => d.accountId === v.account.id)
+            .map((d) => ({ date: d.date, type: 'borrow' as const, amount: d.amount })),
+          ...v.extraPayments,
+        ],
       };
     });
 }
@@ -282,4 +293,14 @@ export function emptyScenario(budget: number): ScenarioConfig {
 export function monthsUntil(from: string, to: string | null): number | null {
   if (!to) return null;
   return Math.max(0, Math.round((toDay(to) - toDay(from)) / (365.25 / 12)));
+}
+
+/** Future occurrences (after today, next 30 years) of scheduled payments that count toward projections. */
+export function scheduledExtraPayments(schedules: Schedule[], accountId: string, today: string): FutureEvent[] {
+  const until = fromDay(addMonths(toDay(today), 360));
+  const tomorrow = fromDay(toDay(today) + 1);
+  return schedules
+    .filter((s) => s.accountId === accountId && s.includeInProjection && s.amount > 0)
+    .flatMap((s) => occurrences(s, tomorrow, until).map((d) => ({ date: d, type: 'payment' as const, amount: s.amount })))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }

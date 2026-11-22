@@ -62,7 +62,9 @@ export function projectAccount(
   const freq = planned != null && planned > 0 ? acct.frequency : 'monthly';
   const payAmount = planned != null && planned > 0 ? D(planned) : null;
   const events = [...(opts.events ?? [])].sort((a, b) => a.date.localeCompare(b.date));
-  const lastEventDay = events.length ? toDay(events[events.length - 1].date) : -Infinity;
+  // Only future borrowing can make a stagnant balance start moving again; extra payments don't block detection.
+  const borrows = events.filter((e) => e.type === 'borrow');
+  const lastEventDay = borrows.length ? toDay(borrows[borrows.length - 1].date) : -Infinity;
   let ei = 0;
 
   const rows: ScheduleRow[] = [];

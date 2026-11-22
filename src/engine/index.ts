@@ -4,3 +4,4 @@ export * from './sim';
 export * from './ledger';
 export * from './project';
 export * from './plan';
+export * from './recurrence';

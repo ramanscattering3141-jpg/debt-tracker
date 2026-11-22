@@ -1,4 +1,4 @@
-import { db, uid, rateOn, type Account, type RateRecord, type Transaction, type Scenario } from './db';
+import { db, uid, rateOn, type Account, type RateRecord, type Transaction, type Scenario, type Schedule } from './db';
 import { addMonths, fromDay, toDay, todayISO, replayLedger } from '@/engine';
 
 export const ACCOUNT_COLORS = ['#7457b8', '#3f8f9e', '#b392e6', '#d9895b', '#cc5f93', '#5a74c2', '#6aa874', '#8a8299'];
@@ -147,8 +147,9 @@ export async function saveAccount(a: Account) {
 }
 
 export async function deleteAccount(id: string) {
-  await db.transaction('rw', [db.accounts, db.rates, db.transactions, db.payments], async () => {
+  await db.transaction('rw', [db.accounts, db.rates, db.transactions, db.payments, db.schedules], async () => {
     await db.accounts.delete(id);
+    await db.schedules.where('accountId').equals(id).delete();
     await db.rates.where('accountId').equals(id).delete();
     await db.transactions.where('accountId').equals(id).delete();
     await db.payments.where('accountId').equals(id).delete();
@@ -213,12 +214,39 @@ export async function deleteTransaction(id: string) {
 
 // ---------- payment calendar ----------
 
-export async function markPaid(accountId: string, dueDate: string, amount: number, paidDate: string, recordTransaction: boolean) {
+export async function markPaid(
+  accountId: string,
+  dueDate: string,
+  amount: number,
+  paidDate: string,
+  recordTransaction: boolean,
+  scheduleId: string | null = null,
+  label?: string,
+) {
   let transactionId: string | null = null;
-  if (recordTransaction && amount > 0) {
-    transactionId = await addTransaction({ accountId, date: paidDate, amount, type: 'payment', description: `Payment for ${dueDate} due date`, affectsBalance: true });
+  if (recordTransaction && amount > 0 && accountId) {
+    transactionId = await addTransaction({
+      accountId,
+      date: paidDate,
+      amount,
+      type: 'payment',
+      description: label ? `${label} (${dueDate})` : `Payment for ${dueDate} due date`,
+      affectsBalance: true,
+    });
   }
-  await db.payments.add({ id: uid(), accountId, dueDate, status: 'paid', paidDate, amount, transactionId });
+  await db.payments.add({ id: uid(), accountId, scheduleId, dueDate, status: 'paid', paidDate, amount, transactionId });
+}
+
+// ---------- scheduled payments ----------
+
+export async function saveSchedule(s: Schedule) {
+  await db.schedules.put(s);
+}
+export async function deleteSchedule(id: string) {
+  await db.transaction('rw', db.schedules, db.payments, async () => {
+    await db.schedules.delete(id);
+    await db.payments.where('scheduleId').equals(id).delete();
+  });
 }
 
 export async function unmarkPaid(id: string, removeTransaction: boolean) {
@@ -242,8 +270,8 @@ export async function deleteScenario(id: string) {
 // ---------- reset & sample data ----------
 
 export async function resetAll() {
-  await db.transaction('rw', [db.accounts, db.rates, db.transactions, db.payments, db.scenarios, db.settings], async () => {
-    await Promise.all([db.accounts.clear(), db.rates.clear(), db.transactions.clear(), db.payments.clear(), db.scenarios.clear(), db.settings.clear()]);
+  await db.transaction('rw', [db.accounts, db.rates, db.transactions, db.payments, db.scenarios, db.settings, db.schedules], async () => {
+    await Promise.all([db.accounts.clear(), db.rates.clear(), db.transactions.clear(), db.payments.clear(), db.scenarios.clear(), db.settings.clear(), db.schedules.clear()]);
   });
   await ensureInitialized();
 }
@@ -294,13 +322,25 @@ export async function loadSampleData() {
   txns.push({ accountId: td.id, date: d(3, 12), amount: 420, type: 'borrow', description: 'Purchases (sample)', affectsBalance: true });
   txns.push({ accountId: mbna.id, date: d(6, 8), amount: 35, type: 'fee', description: 'Annual fee (sample)', affectsBalance: true });
 
-  await db.transaction('rw', [db.accounts, db.rates, db.transactions, db.settings, db.scenarios], async () => {
+  await db.transaction('rw', [db.accounts, db.rates, db.transactions, db.settings, db.scenarios, db.schedules, db.payments], async () => {
     for (const a of accts) await db.accounts.update(a.id, upd[a.id] ?? {});
     await db.rates.clear();
     await db.rates.bulkAdd(rates);
     let c = Date.now();
-    await db.transactions.bulkAdd(txns.map((t) => ({ ...t, id: uid(), createdAt: c++ })));
+    const withIds = txns.map((t) => ({ ...t, id: uid(), createdAt: c++ }));
+    await db.transactions.bulkAdd(withIds);
+    // Past sample payments count as paid on the calendar.
+    await db.payments.bulkAdd(
+      withIds
+        .filter((t) => t.type === 'payment')
+        .map((t) => ({ id: uid(), accountId: t.accountId, scheduleId: null, dueDate: t.date, status: 'paid' as const, paidDate: t.date, amount: t.amount, transactionId: t.id })),
+    );
     await db.settings.put({ key: 'sampleData', value: true });
+    await db.settings.put({ key: 'reminders', value: { enabled: true, defaultDays: 3, badge: true } });
+    await db.schedules.bulkAdd([
+      { id: uid(), name: 'Extra payday payment (sample)', accountId: td.id, amount: 50, frequency: 'biweekly', startDate: fromDay(today + 6), endDate: null, remindDaysBefore: 1, includeInProjection: true, createdAt: Date.now() },
+      { id: uid(), name: 'Tax refund lump sum (sample)', accountId: mbna.id, amount: 600, frequency: 'once', startDate: fromDay(addMonths(today, 4, 30)), endDate: null, remindDaysBefore: 7, includeInProjection: true, createdAt: Date.now() + 1 },
+    ]);
     await db.settings.put({ key: 'plan', value: { monthlyBudget: 1300, extraMonthly: 0, oneTimeAmount: 0, oneTimeDate: todayISO(), strategy: 'avalanche', customAllocations: {} } });
     await db.scenarios.bulkAdd([
       { id: uid(), name: 'LOC rate +1% (sample)', createdAt: Date.now(), config: { monthlyBudget: 1300, extraMonthly: 0, strategy: 'avalanche', customAllocations: {}, rateChanges: [{ accountId: loc.id, delta: 1, effectiveDate: todayISO() }], oneTimePayments: [], payoffNow: [], futureDraws: [] } },

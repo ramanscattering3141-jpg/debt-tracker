@@ -15,6 +15,11 @@ Open the site in **Safari**, tap Share › **Add to Home Screen**. It opens full
 - Each device keeps its own data. To move it, use More › Backup › Export, then Restore on the other device.
 - Export a backup regularly (it saves to the Files app). Deleting the home-screen app deletes its data.
 
+## Reminders & scheduled payments
+Calendar › Reminders: choose how many days ahead to be reminded (overall or per account), and add one-off or recurring manual payments (weekly, every 2 weeks, monthly, quarterly, yearly).
+- **Website / home-screen app:** due payments show under "Coming up" on Home, plus a count on the app icon. Tap **Add reminders to Calendar** once to get iPhone Calendar alerts that fire even when the app is closed.
+- **Native app** (`scripts/iphone.sh`): real notifications are scheduled on the phone automatically at 9:00 am.
+
 ## Run locally (Mac / Windows)
 Requires Node 20+. `npm install`, then `npm run dev` (development) or `npm run build && npm run preview`.
 

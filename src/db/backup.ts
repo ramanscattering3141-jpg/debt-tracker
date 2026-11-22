@@ -1,7 +1,7 @@
-import { db, type Account, type RateRecord, type Transaction, type PaymentRecord, type Scenario, type Setting } from './db';
+import { db, type Account, type RateRecord, type Transaction, type PaymentRecord, type Scenario, type Setting, type Schedule } from './db';
 
 export const BACKUP_FORMAT = 'personal-debt-tracker-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 export interface Backup {
   format: typeof BACKUP_FORMAT;
@@ -13,18 +13,21 @@ export interface Backup {
   payments: PaymentRecord[];
   scenarios: Scenario[];
   settings: Setting[];
+  /** Added in version 2. */
+  schedules?: Schedule[];
 }
 
 export async function exportBackup(): Promise<Backup> {
-  const [accounts, rates, transactions, payments, scenarios, settings] = await Promise.all([
+  const [accounts, rates, transactions, payments, scenarios, settings, schedules] = await Promise.all([
     db.accounts.toArray(),
     db.rates.toArray(),
     db.transactions.toArray(),
     db.payments.toArray(),
     db.scenarios.toArray(),
     db.settings.toArray(),
+    db.schedules.toArray(),
   ]);
-  return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: new Date().toISOString(), accounts, rates, transactions, payments, scenarios, settings };
+  return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: new Date().toISOString(), accounts, rates, transactions, payments, scenarios, settings, schedules };
 }
 
 const isDate = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -71,6 +74,12 @@ export function validateBackup(raw: unknown): ValidationResult {
     if (!isDate(r.effectiveDate)) errors.push(`Rate record #${i + 1}: invalid effective date.`);
   });
   for (const id of ids) if (!b.rates!.some((r) => r.accountId === id)) errors.push('Every account needs at least one rate record.');
+  if (b.schedules !== undefined && !Array.isArray(b.schedules)) errors.push('Invalid "schedules" list.');
+  (b.schedules ?? []).forEach((s, i) => {
+    if (s.accountId && !ids.has(s.accountId)) errors.push(`Scheduled payment #${i + 1}: unknown account.`);
+    if (!isDate(s.startDate)) errors.push(`Scheduled payment #${i + 1}: invalid start date.`);
+    if (!isNum(s.amount)) errors.push(`Scheduled payment #${i + 1}: invalid amount.`);
+  });
 
   return {
     ok: errors.length === 0,
@@ -82,8 +91,9 @@ export function validateBackup(raw: unknown): ValidationResult {
 
 /** Replace ALL data with the backup. Call only after validation and user confirmation. */
 export async function restoreBackup(b: Backup) {
-  await db.transaction('rw', [db.accounts, db.rates, db.transactions, db.payments, db.scenarios, db.settings], async () => {
-    await Promise.all([db.accounts.clear(), db.rates.clear(), db.transactions.clear(), db.payments.clear(), db.scenarios.clear(), db.settings.clear()]);
+  await db.transaction('rw', [db.accounts, db.rates, db.transactions, db.payments, db.scenarios, db.settings, db.schedules], async () => {
+    await Promise.all([db.accounts.clear(), db.rates.clear(), db.transactions.clear(), db.payments.clear(), db.scenarios.clear(), db.settings.clear(), db.schedules.clear()]);
+    await db.schedules.bulkAdd(b.schedules ?? []);
     await db.accounts.bulkAdd(b.accounts);
     await db.rates.bulkAdd(b.rates);
     await db.transactions.bulkAdd(b.transactions);

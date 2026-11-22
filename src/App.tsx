@@ -14,6 +14,9 @@ import { More } from '@/pages/More';
 import { Transactions } from '@/pages/Transactions';
 import { History } from '@/pages/History';
 import { DataPage } from '@/pages/Data';
+import { Reminders } from '@/pages/Reminders';
+import { activeReminders, reminderSettings } from '@/lib/upcoming';
+import { syncNotifications, updateBadge } from '@/lib/notify';
 
 export function useRoute(): [string[], (path: string) => void] {
   const get = () => (window.location.hash.replace(/^#\/?/, '') || 'home').split('/');
@@ -60,11 +63,20 @@ export default function App() {
   useEffect(() => {
     if (data) setCurrency(String(data.settings.currency ?? 'CAD'));
   }, [data]);
+  // Reminders: icon badge (installed web app) and on-device notifications (native app).
+  useEffect(() => {
+    if (!data || !summary) return;
+    const t = setTimeout(() => {
+      updateBadge(activeReminders(summary, data, today).length, reminderSettings(data).badge);
+      syncNotifications(summary, data, today).catch(() => undefined);
+    }, 800);
+    return () => clearTimeout(t);
+  }, [data, summary, today]);
 
   if (!ready || !data || !summary) return <div className="p-8 text-center text-subtle">Loading…</div>;
 
   const section = route[0];
-  const activeNav = ['account'].includes(section) ? 'accounts' : ['transactions', 'history', 'data'].includes(section) ? 'more' : section;
+  const activeNav = ['account'].includes(section) ? 'accounts' : ['transactions', 'history', 'data'].includes(section) ? 'more' : section === 'reminders' ? 'calendar' : section;
   let page;
   switch (section) {
     case 'accounts':
@@ -90,6 +102,9 @@ export default function App() {
       break;
     case 'data':
       page = <DataPage />;
+      break;
+    case 'reminders':
+      page = <Reminders />;
       break;
     default:
       page = <Dashboard />;
