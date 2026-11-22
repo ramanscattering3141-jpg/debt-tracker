@@ -447,6 +447,27 @@ describe('balance entered mid-cycle', () => {
   });
 });
 
+describe('first payment after a mid-cycle balance', () => {
+  it('interest-only minimum on a LOC goes entirely to interest', () => {
+    const loc = acct({
+      rate: 7,
+      dueDay: 2,
+      interest: { method: 'simple', accrualBasis: 'daily', periodsPerYear: 12, dayCount: '365' },
+      minPayment: { method: 'interestOnly' },
+    });
+    const s = currentState(loc, 10000, '2026-11-22', [], '2026-11-22');
+    expect(s.estimateStart).toBe('2026-11-01');
+    const p = projectAccount(loc, s.sim, '2026-11-22', { horizonMonths: 3 });
+    const first = p.rows[0];
+    expect(first.date).toBe('2026-12-02');
+    // Nov 1 → Dec 2 = 31 days of interest; all of the payment is interest.
+    expect(first.payment).toBeCloseTo((10000 * 0.07 * 31) / 365, 8);
+    expect(first.interest).toBeCloseTo(first.payment, 8);
+    expect(first.principal).toBeCloseTo(0, 8);
+    expect(first.balance).toBeCloseTo(10000, 8);
+  });
+});
+
 describe('pay in full', () => {
   const card = acct({
     rate: 20,

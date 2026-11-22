@@ -75,7 +75,9 @@ export function projectAccount(
   let monthlyCount = 0;
   let nextPay = nextMonthly;
   const step = freq === 'weekly' ? 7 : freq === 'biweekly' ? 14 : 0;
-  let lastInterestTotal = ZERO;
+  // Interest already accrued before the start (e.g. since the cycle began) is paid by the first payment,
+  // so it belongs in the first row's interest, not its principal.
+  let lastInterestTotal = sim.interestOwed.neg();
   let totalPaid = ZERO;
   let belowMinimum = false;
   let currentMin = ZERO;

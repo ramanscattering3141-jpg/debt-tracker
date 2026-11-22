@@ -144,6 +144,8 @@ export interface CurrentState {
   /** Starting state for projections (as of `asOf`). */
   sim: { principal: Decimal; interestOwed: Decimal; feesOwed: Decimal; cycleInterest: Decimal };
   ledger: LedgerResult;
+  /** Date the interest estimate starts (start of the billing cycle, or the last recorded interest charge). */
+  estimateStart: ISODate;
 }
 
 /**
@@ -209,5 +211,6 @@ export function currentState(
       cycleInterest: sim.cycleInterest,
     },
     ledger,
+    estimateStart: fromDay(startDay),
   };
 }

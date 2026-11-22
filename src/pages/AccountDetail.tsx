@@ -85,7 +85,7 @@ function Overview({ view }: { view: AccountView }) {
         <div className="text-[32px] font-bold tabular-nums leading-tight">{money(view.balance)}</div>
         <div className="text-xs text-subtle">
           Recorded {money(view.state.recordedBalance)}
-          {view.state.estimatedAccrued > 0.005 && <> + ≈ {money(view.state.estimatedAccrued)} interest accrued since {date(view.state.ledger.accrualStart)} (estimate)</>}
+          {view.state.estimatedAccrued > 0.005 && <> + ≈ {money(view.state.estimatedAccrued)} interest accrued since {date(view.state.estimateStart)} (estimate)</>}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
           <Stat label="Interest rate" value={pct(view.rate)} sub={a.interest.method === 'simple' ? 'Simple interest' : `Compounded ${periodName(a.interest.periodsPerYear)}`} />

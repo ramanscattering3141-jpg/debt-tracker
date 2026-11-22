@@ -92,7 +92,7 @@ export function simulatePlan(inputs: PlanAccountInput[], opts: PlanOptions): Pla
       payoff: sim.isPaidOff() ? start : null,
       paid: ZERO,
       startBalance: sim.balance().toNumber(),
-      lastInterest: ZERO,
+      lastInterest: sim.interestOwed.neg(),
     };
   });
   const startBalance = slots.reduce((s, x) => s + x.startBalance, 0);
