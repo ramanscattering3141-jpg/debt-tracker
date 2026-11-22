@@ -6,7 +6,7 @@ Built with React + TypeScript + Vite, Tailwind, Dexie (IndexedDB), Recharts and 
 ## Hosting (website that installs like an app)
 It's a static site. Your financial data is **never** sent to the host; it lives in the browser storage of each device you use.
 
-**GitHub Pages:** run `npm run deploy`. It tests, builds and publishes to the `gh-pages` branch. Live at https://ramanscattering3141-jpg.github.io/debt-tracker/
+**GitHub Pages:** every push to `main` runs the tests, builds and deploys automatically (`.github/workflows/deploy.yml`). Live at https://ramanscattering3141-jpg.github.io/debt-tracker/ (`npm run deploy` is a manual fallback).
 **Netlify:** "Import from Git" uses `netlify.toml` automatically. Or run `npm run build` and drag the `dist` folder onto app.netlify.com/drop.
 
 ## Install on iPhone 15
