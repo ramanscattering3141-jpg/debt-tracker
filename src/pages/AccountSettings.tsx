@@ -246,6 +246,14 @@ export function AccountSettings({ view }: { view: AccountView }) {
           <Field label="Billing cycle starts on day" hint="Interest on a balance you enter mid-cycle is counted from this day. Use your statement date if you know it.">
             <NumberInput value={a.cycleStartDay ?? 1} onChange={(n) => set('cycleStartDay', Math.min(31, Math.max(1, Math.round(n ?? 1))))} />
           </Field>
+          <label className="col-span-2 flex items-center gap-2 text-sm">
+            <input type="checkbox" className="h-4 w-4" checked={!!a.payInFull} onChange={(e) => set('payInFull', e.target.checked)} />
+            Pay the full balance every month
+          </label>
+          {a.payInFull ? (
+            <p className="col-span-2 -mt-1 text-xs text-subtle">The whole balance is paid on each due date. Paying in full keeps the grace period, so no interest is estimated.</p>
+          ) : (
+          <>
           <Field label="Payment frequency">
             <Select value={a.frequency} onChange={(e) => set('frequency', e.target.value as Account['frequency'])}>
               <option value="monthly">Monthly</option>
@@ -256,6 +264,8 @@ export function AccountSettings({ view }: { view: AccountView }) {
           <Field label={`Planned payment (per ${a.frequency === 'monthly' ? 'month' : a.frequency === 'weekly' ? 'week' : '2 weeks'})`} hint="Leave blank to pay the minimum" className="col-span-2">
             <NumberInput value={a.plannedPayment} onChange={(n) => set('plannedPayment', n)} prefix="$" />
           </Field>
+          </>
+          )}
           <Field label="Payment reminder" className="col-span-2" hint="Change the default under Calendar › Reminders">
             <Select value={a.remindDaysBefore == null ? 'default' : String(a.remindDaysBefore)} onChange={(e) => set('remindDaysBefore', e.target.value === 'default' ? null : Number(e.target.value))}>
               <option value="default">Use default</option>

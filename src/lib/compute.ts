@@ -97,7 +97,9 @@ export function buildAccountView(a: Account, data: AppData, today: string): Acco
   const state = currentState(engine, a.openingBalance, a.openingBalanceDate, txns, today);
   const extras = scheduledExtraPayments(data.schedules, a.id, today);
   const projection = projectAccount(engine, state.sim, today, { events: extras });
-  const planned = a.plannedPayment && a.plannedPayment > 0 ? monthlyEquivalent(a.plannedPayment, a.frequency) : projection.firstMinimum;
+  const planned = a.payInFull
+    ? state.estimatedBalance
+    : a.plannedPayment && a.plannedPayment > 0 ? monthlyEquivalent(a.plannedPayment, a.frequency) : projection.firstMinimum;
   let label = describeMin(a.minPayment);
   if (a.minPayment.floor) label += ` (min $${a.minPayment.floor})`;
   return {

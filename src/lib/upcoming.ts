@@ -39,7 +39,11 @@ export function upcomingItems(summary: Summary, data: AppData, from: string, to:
       if (v.balance <= 0.005 && !paid) continue;
       const row = v.projection.rows.find((r) => r.date === iso && r.minimum !== undefined);
       const minimum = row?.minimum ?? (iso >= today ? v.minimum : 0);
-      const planned = a.plannedPayment && a.plannedPayment > 0 ? a.plannedPayment : minimum;
+      const planned = a.payInFull
+        ? v.projection.rows.find((r) => r.date === iso && r.kind === 'payment')?.payment ?? (iso >= today ? v.balance : minimum)
+        : a.plannedPayment && a.plannedPayment > 0
+          ? a.plannedPayment
+          : minimum;
       out.push({ key: `due:${a.id}:${iso}`, kind: 'due', date: iso, name: a.name, accountId: a.id, color: a.color, view: v, minimum, amount: planned, remindDays: accountRemindDays(v, rs), paid });
     }
   }
@@ -86,7 +90,7 @@ export function remindersICS(summary: Summary, data: AppData, today: string): st
     entries.push({
       uid: `due-${a.id}@debt-tracker`,
       title: `${a.name} payment due`,
-      description: `Minimum about $${v.minimum.toFixed(2)}${a.plannedPayment ? `, planned $${a.plannedPayment.toFixed(2)}` : ''} (as of ${today}). Check the app for current amounts.`,
+      description: `Minimum about $${v.minimum.toFixed(2)}${a.payInFull ? ', paying the full balance' : a.plannedPayment ? `, planned $${a.plannedPayment.toFixed(2)}` : ''} (as of ${today}). Check the app for current amounts.`,
       startDate: first,
       frequency: 'monthly',
       dayOfMonth: a.dueDay,

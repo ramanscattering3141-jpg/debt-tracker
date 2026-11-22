@@ -23,6 +23,7 @@ function acct(p: Partial<EngineAccount> & { rate?: number }): EngineAccount {
     plannedPayment: p.plannedPayment ?? null,
     repaymentStartDate: p.repaymentStartDate ?? null,
     cycleStartDay: p.cycleStartDay ?? null,
+    payInFull: p.payInFull ?? false,
   };
 }
 
@@ -442,6 +443,41 @@ describe('balance entered mid-cycle', () => {
   it('a balance entered on the cycle start day accrues nothing yet', () => {
     const a = acct({ rate: 10 });
     const s = currentState(a, 1000, '2026-11-01', [], '2026-11-01');
+    expect(s.estimatedAccrued).toBe(0);
+  });
+});
+
+describe('pay in full', () => {
+  const card = acct({
+    rate: 20,
+    dueDay: 15,
+    payInFull: true,
+    interest: { method: 'compound', accrualBasis: 'daily', periodsPerYear: 12, dayCount: '365' },
+    minPayment: { method: 'percentBalance', percent: 3 },
+  });
+
+  it('pays the whole balance on the next due date with no interest', () => {
+    const p = projectAccount(card, { principal: 1200 }, '2026-11-22');
+    expect(p.payoffDate).toBe('2026-12-15');
+    expect(p.totalInterest).toBe(0);
+    expect(p.totalPaid).toBeCloseTo(1200, 8);
+    expect(p.belowMinimum).toBe(false);
+  });
+
+  it('new charges before the due date are included in the full payment', () => {
+    const p = projectAccount(card, { principal: 1200 }, '2026-11-22', { events: [{ date: '2026-12-03', type: 'borrow', amount: 300 }] });
+    const pays = p.rows.filter((r) => r.kind === 'payment');
+    expect(pays).toHaveLength(1);
+    expect(pays[0]).toMatchObject({ date: '2026-12-15', payment: 1500 });
+  });
+
+  it('a trial payment overrides pay-in-full and interest accrues', () => {
+    const p = projectAccount(card, { principal: 1200 }, '2026-11-22', { payment: 100 });
+    expect(p.totalInterest).toBeGreaterThan(0);
+  });
+
+  it('no interest is estimated on the current balance', () => {
+    const s = currentState(card, 1200, '2026-11-22', [], '2026-11-30');
     expect(s.estimatedAccrued).toBe(0);
   });
 });

@@ -58,7 +58,10 @@ export function projectAccount(
   const horizonMonths = opts.horizonMonths ?? 600;
   const horizonDay = addMonths(start, horizonMonths);
   const startBalance = sim.balance().toNumber();
-  const planned = opts.payment ?? acct.plannedPayment ?? null;
+  // "Try a different payment" overrides pay-in-full.
+  const inFull = !!acct.payInFull && opts.payment == null;
+  if (inFull) sim.accrualEnabled = false;
+  const planned = inFull ? null : opts.payment ?? acct.plannedPayment ?? null;
   const freq = planned != null && planned > 0 ? acct.frequency : 'monthly';
   const payAmount = planned != null && planned > 0 ? D(planned) : null;
   const events = [...(opts.events ?? [])].sort((a, b) => a.date.localeCompare(b.date));
@@ -137,7 +140,7 @@ export function projectAccount(
     }
 
     if (t === nextPay) {
-      const want = payAmount ?? currentMin;
+      const want = inFull ? sim.balance() : payAmount ?? currentMin;
       if (freq === 'monthly' && want.plus(EPS).lt(currentMin)) belowMinimum = true;
       const s = sim.pay(want);
       totalPaid = totalPaid.plus(s.applied);

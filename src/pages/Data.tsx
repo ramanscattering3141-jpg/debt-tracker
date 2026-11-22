@@ -40,7 +40,7 @@ export function DataPage() {
           day_count: v.account.interest.dayCount,
           minimum_payment: v.minimum.toFixed(2),
           minimum_method: v.minimumLabel,
-          planned_payment: v.account.plannedPayment ?? '',
+          planned_payment: v.account.payInFull ? 'in full' : v.account.plannedPayment ?? '',
           frequency: v.account.frequency,
           due_day: v.account.dueDay,
           credit_limit: v.account.creditLimit ?? '',

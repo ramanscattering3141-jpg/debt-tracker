@@ -26,6 +26,8 @@ export interface Account {
   frequency: PaymentFrequency;
   /** Planned payment per occurrence (per month / 2 weeks / week). null → pay the minimum. */
   plannedPayment: number | null;
+  /** The whole balance is paid every month (e.g. a credit card paid in full). Overrides plannedPayment. */
+  payInFull?: boolean;
   creditLimit: number | null;
   openingDate: string | null;
   repaymentStartDate: string | null;
@@ -167,6 +169,7 @@ export function toEngine(a: Account, rates: RateRecord[]): EngineAccount {
     dueDay: a.dueDay,
     frequency: a.frequency,
     plannedPayment: a.plannedPayment,
+    payInFull: !!a.payInFull,
     repaymentStartDate: a.repaymentStartDate,
     cycleStartDay: a.cycleStartDay ?? null,
   };

@@ -70,6 +70,11 @@ export interface EngineAccount {
   frequency: PaymentFrequency;
   /** Planned payment per payment occurrence (per month / per 2 weeks / per week). */
   plannedPayment?: number | null;
+  /**
+   * The full balance is paid every due date (typical credit card use). Projections pay the whole
+   * balance each month and assume the grace period applies, so no interest is estimated.
+   */
+  payInFull?: boolean;
   /** Anchor for amortized-minimum term and quarterly/annual compounding. */
   repaymentStartDate?: ISODate | null;
   /**

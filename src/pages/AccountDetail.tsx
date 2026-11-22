@@ -90,7 +90,11 @@ function Overview({ view }: { view: AccountView }) {
         <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
           <Stat label="Interest rate" value={pct(view.rate)} sub={a.interest.method === 'simple' ? 'Simple interest' : `Compounded ${periodName(a.interest.periodsPerYear)}`} />
           <Stat label="Required minimum" value={money(view.minimum)} sub={view.minimumLabel} />
-          <Stat label="Planned payment" value={money(a.plannedPayment ?? view.minimum)} sub={a.plannedPayment ? `${a.frequency}` : 'Using minimum'} />
+          {a.payInFull ? (
+            <Stat label="Planned payment" value={money(view.balance)} sub="Full balance, monthly" />
+          ) : (
+            <Stat label="Planned payment" value={money(a.plannedPayment ?? view.minimum)} sub={a.plannedPayment ? `${a.frequency}` : 'Using minimum'} />
+          )}
           <Stat label="Next due" value={date(view.projection.rows.find((r) => r.minimum !== undefined)?.date ?? null)} sub={`Due on day ${a.dueDay}`} />
           {a.creditLimit ? <Stat label="Available credit" value={money(Math.max(0, a.creditLimit - view.balance))} sub={`Limit ${money(a.creditLimit)}`} /> : null}
           <Stat label="Interest paid to date" value={money(view.state.ledger.interestPaid.toNumber())} />
@@ -102,7 +106,7 @@ function Overview({ view }: { view: AccountView }) {
         <CardHeader title="Repayment projection" subtitle="Estimated future interest — uses real calendar dates and scheduled rate changes" />
         <div className="px-4 pb-2">
           <Field label="Try a different payment (per occurrence)" hint="Doesn’t change your saved plan.">
-            <NumberInput value={tryPayment} onChange={setTryPayment} prefix="$" placeholder={String(a.plannedPayment ?? view.minimum.toFixed(2))} />
+            <NumberInput value={tryPayment} onChange={setTryPayment} prefix="$" placeholder={a.payInFull ? view.balance.toFixed(2) : String(a.plannedPayment ?? view.minimum.toFixed(2))} />
           </Field>
         </div>
         {view.balance <= 0.005 ? (
@@ -192,7 +196,7 @@ function WithdrawalPlanner({ view }: { view: AccountView }) {
   const rows = useMemo(() => {
     const events: FutureEvent[] = amount && amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(dt) ? [{ date: dt, type: 'borrow', amount }] : [];
     const opts = { horizonMonths: months + 1 };
-    const engine = minOnly ? { ...view.engine, plannedPayment: null } : view.engine;
+    const engine = minOnly ? { ...view.engine, plannedPayment: null, payInFull: false } : view.engine;
     const base = projectAccount(engine, view.state.sim, today, opts);
     const draw = projectAccount(engine, view.state.sim, today, { ...opts, events });
     const mins = (p: typeof base) => p.rows.filter((r) => r.minimum !== undefined);

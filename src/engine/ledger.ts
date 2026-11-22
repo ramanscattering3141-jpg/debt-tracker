@@ -172,6 +172,8 @@ export function currentState(
     interestOwed: compound ? 0 : atStart.interestOwed,
     feesOwed: compound ? 0 : atStart.feesOwed,
   });
+  // Paid in full each month: the grace period applies, so no interest is estimated.
+  if (acct.payInFull) sim.accrualEnabled = false;
   const endDay = toDay(asOf);
   // Due dates inside the estimate window close billing cycles (so cycleInterest = current cycle only).
   let due = nextDueOnOrAfter(startDay + 1, acct.dueDay);
