@@ -1,0 +1,6 @@
+{
+  "appId": "local.personal.debttracker",
+  "appName": "Debt Tracker",
+  "webDir": "dist",
+  "ios": { "contentInset": "never", "backgroundColor": "#f8fafc" }
+}
