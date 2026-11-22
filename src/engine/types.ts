@@ -72,6 +72,11 @@ export interface EngineAccount {
   plannedPayment?: number | null;
   /** Anchor for amortized-minimum term and quarterly/annual compounding. */
   repaymentStartDate?: ISODate | null;
+  /**
+   * Day of month the billing cycle starts (1–31). A balance entered mid-cycle is assumed to have
+   * been carried since this day, so the cycle's interest is estimated from here. Defaults to 1.
+   */
+  cycleStartDay?: number | null;
 }
 
 export interface FutureEvent {

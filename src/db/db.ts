@@ -21,6 +21,8 @@ export interface Account {
   rateType: 'fixed' | 'variable';
   minPayment: MinPaymentConfig;
   dueDay: number;
+  /** Day of month the billing cycle starts; interest on a mid-cycle balance is estimated from here. null → 1st. */
+  cycleStartDay?: number | null;
   frequency: PaymentFrequency;
   /** Planned payment per occurrence (per month / 2 weeks / week). null → pay the minimum. */
   plannedPayment: number | null;
@@ -166,6 +168,7 @@ export function toEngine(a: Account, rates: RateRecord[]): EngineAccount {
     frequency: a.frequency,
     plannedPayment: a.plannedPayment,
     repaymentStartDate: a.repaymentStartDate,
+    cycleStartDay: a.cycleStartDay ?? null,
   };
 }
 

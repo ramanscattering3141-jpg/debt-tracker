@@ -67,6 +67,13 @@ export function nextDueOnOrAfter(day: number, dueDay: number): number {
   return cand >= day ? cand : dayOf(y, m + 1, dueDay);
 }
 
+/** Last occurrence of day-of-month `dom` on or before `day`. */
+export function prevDayOfMonthOnOrBefore(day: number, dom: number): number {
+  const { y, m } = ymd(day);
+  const cand = dayOf(y, m, dom);
+  return cand <= day ? cand : dayOf(y, m - 1, dom);
+}
+
 export function todayISO(): ISODate {
   const now = new Date();
   const m = String(now.getMonth() + 1).padStart(2, '0');

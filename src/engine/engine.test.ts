@@ -22,6 +22,7 @@ function acct(p: Partial<EngineAccount> & { rate?: number }): EngineAccount {
     frequency: p.frequency ?? 'monthly',
     plannedPayment: p.plannedPayment ?? null,
     repaymentStartDate: p.repaymentStartDate ?? null,
+    cycleStartDay: p.cycleStartDay ?? null,
   };
 }
 
@@ -402,6 +403,46 @@ describe('ledger & current state', () => {
     expect(s.estimatedAccrued).toBeCloseTo(i1 + (p2 * 0.1 * 5) / 365, 8);
     // Recording the interest charge moves the estimate start: no interest before Jan 31 is re-estimated.
     expect(s.ledger.accrualStart).toBe('2025-01-31');
+  });
+});
+
+describe('balance entered mid-cycle', () => {
+  it('estimates interest from the start of the month, not the entry date', () => {
+    const a = acct({ rate: 10, dueDay: 25 });
+    const s = currentState(a, 1000, '2026-11-22', [], '2026-11-22');
+    // Nov 1 → Nov 22 = 21 days on 1000.
+    expect(s.estimatedAccrued).toBeCloseTo((1000 * 0.1 * 21) / 365, 8);
+    expect(s.sim.cycleInterest.toNumber()).toBeCloseTo((1000 * 0.1 * 21) / 365, 8);
+  });
+
+  it('uses the configured billing cycle start day', () => {
+    const a = acct({ rate: 10, dueDay: 25, cycleStartDay: 18 });
+    const s = currentState(a, 1000, '2026-11-22', [], '2026-11-30');
+    expect(s.estimatedAccrued).toBeCloseTo((1000 * 0.1 * 12) / 365, 8);
+  });
+
+  it('a mid-cycle adjustment re-bases the cycle from its start', () => {
+    const a = acct({ rate: 10, dueDay: 28 });
+    const txns = [{ date: '2026-11-22', type: 'adjustment' as const, amount: 500 }];
+    const s = currentState(a, 1000, '2026-09-01', txns, '2026-11-22');
+    expect(s.estimatedAccrued).toBeCloseTo((1500 * 0.1 * 21) / 365, 8);
+  });
+
+  it('never estimates before a recorded interest charge in the same cycle', () => {
+    const a = acct({ rate: 10, dueDay: 28 });
+    const txns = [
+      { date: '2026-11-15', type: 'interest' as const, amount: 4 },
+      { date: '2026-11-22', type: 'adjustment' as const, amount: 96 },
+    ];
+    const s = currentState(a, 1000, '2026-09-01', txns, '2026-11-22');
+    // Simple interest: estimate runs on principal (1096) from Nov 15.
+    expect(s.estimatedAccrued).toBeCloseTo((1096 * 0.1 * 7) / 365, 8);
+  });
+
+  it('a balance entered on the cycle start day accrues nothing yet', () => {
+    const a = acct({ rate: 10 });
+    const s = currentState(a, 1000, '2026-11-01', [], '2026-11-01');
+    expect(s.estimatedAccrued).toBe(0);
   });
 });
 

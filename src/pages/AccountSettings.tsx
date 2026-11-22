@@ -47,6 +47,7 @@ export function AccountSettings({ view }: { view: AccountView }) {
   const save = async () => {
     if (!a.name.trim()) return setErr('Name is required.');
     if (a.dueDay < 1 || a.dueDay > 31) return setErr('Due day must be between 1 and 31.');
+    if (a.cycleStartDay != null && (a.cycleStartDay < 1 || a.cycleStartDay > 31)) return setErr('Billing cycle start day must be between 1 and 31.');
     if (!a.interest.periodsPerYear || a.interest.periodsPerYear < 1) return setErr('Periods per year must be at least 1.');
     if (m.method === 'amortized' && !(m.termMonths && m.termMonths > 0)) return setErr('Enter an amortization term.');
     setErr('');
@@ -241,6 +242,9 @@ export function AccountSettings({ view }: { view: AccountView }) {
         <div className="grid grid-cols-2 gap-3 px-4 pb-4">
           <Field label="Due day of month">
             <NumberInput value={a.dueDay} onChange={(n) => set('dueDay', Math.min(31, Math.max(1, Math.round(n ?? 1))))} />
+          </Field>
+          <Field label="Billing cycle starts on day" hint="Interest on a balance you enter mid-cycle is counted from this day. Use your statement date if you know it.">
+            <NumberInput value={a.cycleStartDay ?? 1} onChange={(n) => set('cycleStartDay', Math.min(31, Math.max(1, Math.round(n ?? 1))))} />
           </Field>
           <Field label="Payment frequency">
             <Select value={a.frequency} onChange={(e) => set('frequency', e.target.value as Account['frequency'])}>

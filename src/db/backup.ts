@@ -60,6 +60,7 @@ export function validateBackup(raw: unknown): ValidationResult {
     if (!a.interest || !['simple', 'compound'].includes(a.interest.method)) errors.push(`Account "${a.name}": invalid interest settings.`);
     if (!a.minPayment?.method) errors.push(`Account "${a.name}": invalid minimum payment settings.`);
     if (!isNum(a.dueDay) || a.dueDay < 1 || a.dueDay > 31) errors.push(`Account "${a.name}": invalid due day.`);
+    if (a.cycleStartDay != null && (!isNum(a.cycleStartDay) || a.cycleStartDay < 1 || a.cycleStartDay > 31)) errors.push(`Account "${a.name}": invalid billing cycle start day.`);
     ids.add(a.id);
   });
   b.transactions!.forEach((t, i) => {

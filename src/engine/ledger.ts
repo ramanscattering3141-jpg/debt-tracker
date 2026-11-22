@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
 import { AccountSim, D, ZERO } from './sim';
-import { addMonths, nextDueOnOrAfter, toDay, type ISODate } from './dates';
+import { addMonths, fromDay, nextDueOnOrAfter, prevDayOfMonthOnOrBefore, toDay, type ISODate } from './dates';
 import type { EngineAccount, LedgerTransaction } from './types';
 
 export interface LedgerPoint {
@@ -28,6 +28,8 @@ export interface LedgerResult {
   points: LedgerPoint[];
   /** Interest accrual for estimates starts here (later of opening date / last interest charge / last adjustment). */
   accrualStart: ISODate;
+  /** Date of the latest recorded interest charge, if any. */
+  lastInterestDate: ISODate | null;
 }
 
 export function sortTransactions<T extends LedgerTransaction>(txns: T[]): T[] {
@@ -55,6 +57,7 @@ export function replayLedger(
     feesPaid = ZERO,
     principalPaid = ZERO;
   let accrualStart = openingDate;
+  let lastInterestDate: ISODate | null = null;
   const points: LedgerPoint[] = [];
   const push = (date: ISODate) => {
     const bal = principal.plus(interestOwed).plus(feesOwed);
@@ -96,6 +99,7 @@ export function replayLedger(
         if (affects) interestOwed = interestOwed.plus(amt);
         else interestPaid = interestPaid.plus(amt); // charged and settled outside this ledger
         if (t.date > accrualStart) accrualStart = t.date;
+        lastInterestDate = t.date;
         break;
       case 'fee':
         feesCharged = feesCharged.plus(amt);
@@ -128,6 +132,7 @@ export function replayLedger(
     principalPaid,
     points,
     accrualStart,
+    lastInterestDate,
   };
 }
 
@@ -142,8 +147,12 @@ export interface CurrentState {
 }
 
 /**
- * Current position of an account as of `asOf`: recorded balance plus estimated (unbilled) interest
- * accrued since the last recorded interest charge or balance adjustment.
+ * Current position of an account as of `asOf`: recorded balance plus estimated (unbilled) interest.
+ *
+ * A balance entered (opening balance or adjustment) part-way through a billing cycle is treated as
+ * the balance carried since the start of that cycle, so interest is estimated from the cycle start
+ * rather than from the day it was typed in. A recorded interest charge is never re-estimated: the
+ * estimate never starts before the latest one.
  */
 export function currentState(
   acct: EngineAccount,
@@ -155,12 +164,14 @@ export function currentState(
   const ledger = replayLedger(openingBalance, openingDate, txns, asOf);
   const atStart = replayLedger(openingBalance, openingDate, txns, ledger.accrualStart);
   const compound = acct.interest.method === 'compound';
-  const sim = new AccountSim(acct, ledger.accrualStart, {
+  const anchorDay = toDay(ledger.accrualStart);
+  let startDay = prevDayOfMonthOnOrBefore(anchorDay, acct.cycleStartDay || 1);
+  if (ledger.lastInterestDate) startDay = Math.max(startDay, toDay(ledger.lastInterestDate));
+  const sim = new AccountSim(acct, fromDay(startDay), {
     principal: compound ? atStart.balance : atStart.principal,
     interestOwed: compound ? 0 : atStart.interestOwed,
     feesOwed: compound ? 0 : atStart.feesOwed,
   });
-  const startDay = toDay(ledger.accrualStart);
   const endDay = toDay(asOf);
   // Due dates inside the estimate window close billing cycles (so cycleInterest = current cycle only).
   let due = nextDueOnOrAfter(startDay + 1, acct.dueDay);
